@@ -34,16 +34,16 @@ if __name__ == '__main__':
     life_done = True
 
     is_load_model = True
-    is_training = True
+    is_training = False
 
     is_render = True
     use_standardization = True
     use_noisy_net = False
 
-    model_path = 'data/{}_{}.model'.format(
+    model_path = 'data/{}_{}.model.none'.format(
         'ninja-gaiden-v0',
         datetime.date.today().isoformat())
-    load_model_path = 'data/ninja-gaiden-v0_2018-12-25.model'
+    load_model_path = 'data/ninja-gaiden-v0_2019-05-18.model.none'
 
     lam = 0.95
     num_worker = 1
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     batch_size = 256
     max_step = 1.15e8
 
-    learning_rate = 0.0025
+    learning_rate = 0.001
     lr_schedule = False
 
     stable_eps = 1e-30
@@ -74,6 +74,8 @@ if __name__ == '__main__':
         num_worker,
         num_step,
         gamma,
+        learning_rate=learning_rate,
+        epoch=epoch,
         use_cuda=use_cuda,
         use_noisy_net=use_noisy_net)
     reward_rms = RunningMeanStd()
@@ -97,6 +99,8 @@ if __name__ == '__main__':
     for idx in range(num_worker):
         parent_conn, child_conn = Pipe()
         env = _make_ninja_gaiden_gym()
+        from gym.wrappers import Monitor
+        env = Monitor(env, './video', force=True)
         work = NesGymProc(env, is_render, idx, child_conn)
         work.start()
         works.append(work)

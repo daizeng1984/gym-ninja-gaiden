@@ -30,7 +30,9 @@ DEFAULT_MOVEMENT = [
     ['left', 'B'],
     ['left', 'A', 'B'],
     ['down'],
-    ['up']
+    ['up'],
+    ['up', 'B'],
+    ['down', 'B']
 ]
 
 
@@ -47,7 +49,7 @@ class NinjaGaiden(NESEnv):
         """Initialize a new <TODO: Game Name> environment."""
         super(NinjaGaiden, self).__init__(
             os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ninja-gaiden-u.nes'),
-            frames_per_step=4,
+            frames_per_step=1,
             max_episode_steps=99999
         )
         # setup any variables to use in the below callbacks here
@@ -60,14 +62,20 @@ class NinjaGaiden(NESEnv):
         self.reset()
         # skip the start screen
         self._skip_start_screen()
+        self._skip_stage_blending_anim()
         # stall for a frame
         self.step(0)
         # create a backup state to restore from on subsequent calls to reset
         self._backup()
-        
 
     def _is_game_over(self):
         return self._time >= 255 or self._time <= 0 or (self._lives_last - self._lives) > 0
+
+    def _skip_stage_blending_anim(self):
+        while self._time == 150:
+            # press and release the start button
+            self._frame_advance(0)
+
     def _skip_start_screen(self):
         """Press and release start to skip the start screen."""
         # press and release the start button, start = 8 nop = 0
@@ -115,7 +123,10 @@ class NinjaGaiden(NESEnv):
     def _get_reward(self):
         """Return the reward after a step occurs."""
         # Update all states
-        moved = max(0, self._screen_x - self._screen_x_last) * 4
+        moved = max(0, self._screen_x - self._screen_x_last)
+        if moved > 200 or moved < -200 : 
+            moved = 0
+        moved = moved*0.5
         self._screen_x_last = max(self._screen_x_last, self._screen_x)
 
         # time
@@ -123,16 +134,21 @@ class NinjaGaiden(NESEnv):
         self._time_last = self._time
 
         # hp
-        hpdiff = self._hp - self._hp_last
+        hpdiff = (self._hp - self._hp_last) / max(1, self._hp_last) * 5
         self._hp_last = self._hp
         
         ret= min(15, max(-15, moved + time + hpdiff))
         # print('reward: {} moved: {} time: {} hp: {} screen: {} '.format(ret, moved, time, hpdiff, self._screen_x))
+
+        if self._stage > 0 or self._level > 0:
+            return 100
         
         return ret
 
     def _get_done(self):
         """Return True if the episode is over, False otherwise."""
+        if self._stage > 0 or self._level > 0:
+            return True
         return self._is_game_over()
 
     @property
